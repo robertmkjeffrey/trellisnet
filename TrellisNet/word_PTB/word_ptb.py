@@ -8,7 +8,7 @@ from torch import optim
 import data
 import sys
 from utils import *
-from setproctitle import setproctitle
+#from setproctitle import setproctitle
 
 sys.path.append("../")
 from model import TrellisNetModel
@@ -99,12 +99,20 @@ parser.add_argument('--load', type=str, default='',
 parser.add_argument('--load_weight', type=str, default='',
                     help='path to load the model weights (please only use --load or --load_weight)')
 
+
+parser.add_argument('--use_gpus', type=int, nargs='+',
+                    help='gpus to use')
+
+
 args = parser.parse_args()
 args.save = args.name + ".pt"
 
+# Devices to train upon.
+devices = args.use_gpus
+
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
-setproctitle(args.name)
+# setproctitle(args.name)
 torch.set_default_tensor_type('torch.FloatTensor')
 if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -112,6 +120,9 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
+        # Set the default device to be the smallest GPU
+        if devices is not None:
+            torch.cuda.set_device(devices[0])
 
 ###############################################################################
 # Load data
@@ -128,8 +139,8 @@ else:
     corpus = data.Corpus(args.data)
     torch.save(corpus, fn)
 
-eval_batch_size = 12
-test_batch_size = 12
+eval_batch_size = 16
+test_batch_size = 16
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, test_batch_size)
@@ -226,8 +237,10 @@ def evaluate(data_source):
             else:
                 hidden = model.init_hidden(data.size(1))
 
-            data = data.t()
-            net = nn.DataParallel(model) if batch_size > 10 else model
+
+            print("data shape: ", data[1].shape)
+            print("hidden shape: ", hidden[1].shape)
+            net = nn.DataParallel(model, device_ids=devices) if batch_size > 10 else model
             (_, output, decoded), hidden, _ = net(data, hidden)
             decoded = decoded.transpose(0, 1)
             targets = targets[eff_history:].contiguous().view(-1)
@@ -278,7 +291,7 @@ def train(epoch):
 
         optimizer.zero_grad()
         data = data.t()
-        net = nn.DataParallel(model) if data.size(0) > 10 else model
+        net = nn.DataParallel(model, device_ids=devices) if data.size(0) > 10 else model
         (raw_output, output, decoded), hidden, all_decoded = net(data, hidden)
         decoded = decoded.transpose(0, 1)
 
