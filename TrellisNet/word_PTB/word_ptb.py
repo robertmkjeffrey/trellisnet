@@ -139,8 +139,8 @@ else:
     corpus = data.Corpus(args.data)
     torch.save(corpus, fn)
 
-eval_batch_size = 16
-test_batch_size = 16
+eval_batch_size = 12
+test_batch_size = 12
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, test_batch_size)
@@ -237,9 +237,7 @@ def evaluate(data_source):
             else:
                 hidden = model.init_hidden(data.size(1))
 
-
-            print("data shape: ", data[1].shape)
-            print("hidden shape: ", hidden[1].shape)
+            data = data.t()
             net = nn.DataParallel(model, device_ids=devices) if batch_size > 10 else model
             (_, output, decoded), hidden, _ = net(data, hidden)
             decoded = decoded.transpose(0, 1)
