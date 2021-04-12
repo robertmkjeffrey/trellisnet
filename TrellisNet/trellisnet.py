@@ -120,7 +120,8 @@ class TrellisNet(nn.Module):
         # Gated activations among channel groups
         ct_1 = F.pad(self.ct, (dilation, 0))[:, :, :-dilation]  # Dimension (N, h_size, L)
         ct_1[:, :, :dilation] = cell.repeat(1, 1, dilation)
-
+        
+        # LSTM activation step
         it = torch.sigmoid(out[:, :h_size])
         ot = torch.sigmoid(out[:, h_size: 2 * h_size])
         gt = torch.tanh(out[:, 2 * h_size: 3 * h_size])
