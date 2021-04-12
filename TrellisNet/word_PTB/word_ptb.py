@@ -13,6 +13,10 @@ from utils import *
 sys.path.append("../")
 from model import TrellisNetModel
 
+# Debug Variables
+show_parameters = False
+test_prediction = True
+
 
 parser = argparse.ArgumentParser(description='PyTorch TrellisNet Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
@@ -203,7 +207,14 @@ if args.cuda:
 criterion = nn.NLLLoss() if args.n_experts > 0 else nn.CrossEntropyLoss()
 optimizer = getattr(optim, args.optim)(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
 
-
+if show_parameters:
+    print("Model's state_dict:")
+    for param_tensor in model.state_dict():
+        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+        
+    print("\nModel's parameter shapes:")
+    for param_tensor in model.parameters():
+        print(param_tensor.shape)
 ###############################################################################
 # Training code
 ###############################################################################
@@ -370,7 +381,19 @@ def inference(epoch, epoch_start_time):
 
 if args.eval:
     print("Eval only mode")
-    inference(-1, time.time())
+    if not test_prediction:
+        inference(-1, time.time())
+
+    # Test controlled prediction
+    if test_prediction:
+        print("Shape:")
+        #prediction_test_data = torch.zeros_like(get_batch(test_data, 0, args.seq_len, True)[0]).t()
+        prediction_test_data = torch.zeros([12, 1800, 110])
+        prediction_hidden = model.init_hidden(test_batch_size)
+        print(prediction_hidden)
+        print("\nZero output")
+       #  print(model(prediction_test_data, prediction_hidden))
+        print(model.tnet.module.step(prediction_test_data, hc=prediction_hidden))
     sys.exit(0)
 
 lr = args.lr
@@ -444,8 +467,10 @@ with open(args.save, 'rb') as f:
     print("Saving the pre-trained weights of the best saved model")
     model.save_weights('weights/pretrained_wordptb.pkl')
 
+
 # Run on test data
 test_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(test_loss, math.exp(test_loss)))
 print('=' * 89)
+
